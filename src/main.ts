@@ -1,4 +1,4 @@
-import { Plugin, ItemView, WorkspaceLeaf, Setting, PluginSettingTab, App, Modal } from 'obsidian';
+import { Plugin, ItemView, WorkspaceLeaf, Setting, PluginSettingTab, App, Modal, SettingDefinition } from 'obsidian';
 
 // ============ Types ============
 
@@ -6,7 +6,7 @@ interface PDFTemplate {
   id: string;
   name: string;
   color: string;
-  pattern: string;       // 'none' | 'dot' | 'grid' | 'line'
+  pattern: string;
   patternGap: number;
   patternSize: number;
   patternColor: string;
@@ -15,7 +15,7 @@ interface PDFTemplate {
 
 interface PDFBackgroundTintSettings {
   enabled: boolean;
-  activePreset: string;  // 'custom-<id>' | built-in preset key | 'none'
+  activePreset: string;
   customTemplates: PDFTemplate[];
 }
 
@@ -44,11 +44,10 @@ const PATTERN_OPTIONS: Record<string, { name: string; icon: string }> = {
   'line':      { name: 'Line',      icon: '—' },
   'diagonal':  { name: 'Diagonal',  icon: '/' },
   'cross':     { name: 'Cross',     icon: '✕' },
-  'zigzag':    { name: 'Zigzag',    icon: '⌃' },
+  'zigzag':    { name: 'Zigzag',    icon: '' },
   'stripe':    { name: 'Stripe',    icon: '‖' },
 };
 
-const TINT_STYLE_ID = 'fleurpdf-tint-style';
 const VIEW_TYPE = 'fleurpdf-tint-view';
 const CUSTOM_PREFIX = 'custom-';
 
@@ -67,10 +66,9 @@ function makeDefaultTemplate(): PDFTemplate {
 
 // ============ Plugin ============
 
-export default class PDFBackgroundTintPlugin extends Plugin {
-  settings: PDFBackgroundTintSettings;
+export default class FleurPdfTintPlugin extends Plugin {
+  settings: PDFBackgroundTintSettings = DEFAULT_SETTINGS;
   statusBarItem: HTMLElement;
-  sidebarView: PDFBackgroundTintView | null = null;
   private isDragging = false;
   private currentPattern: string = 'none';
   private currentPatternGap: number = 28;
@@ -82,8 +80,7 @@ export default class PDFBackgroundTintPlugin extends Plugin {
     await this.loadSettings();
 
     this.registerView(VIEW_TYPE, (leaf: WorkspaceLeaf) => {
-      this.sidebarView = new PDFBackgroundTintView(leaf, this);
-      return this.sidebarView;
+      return new PDFBackgroundTintView(leaf, this);
     });
 
     this.registerEvent(
@@ -101,7 +98,7 @@ export default class PDFBackgroundTintPlugin extends Plugin {
 
     this.addSettingTab(new PDFBackgroundTintSettingTab(this.app, this));
 
-    setTimeout(() => {
+    window.setTimeout(() => {
       if (this.settings.enabled) this.applyTint();
     }, 1000);
   }
@@ -111,25 +108,25 @@ export default class PDFBackgroundTintPlugin extends Plugin {
   }
 
   async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const data = await this.loadData() as Partial<PDFBackgroundTintSettings> | null;
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, data ?? {});
   }
 
   async saveSettings() {
     await this.saveData(this.settings);
     this.updateStatusBar();
-    if (this.sidebarView) this.sidebarView.refresh();
   }
 
   async activateSidebar() {
     const { workspace } = this.app;
     const leaves = workspace.getLeavesOfType(VIEW_TYPE);
     if (leaves.length > 0) {
-      workspace.revealLeaf(leaves[0]);
+      await workspace.revealLeaf(leaves[0]);
     } else {
       const leaf = workspace.getRightLeaf(false);
       if (leaf) {
         await leaf.setViewState({ type: VIEW_TYPE, active: true });
-        workspace.revealLeaf(leaf);
+        await workspace.revealLeaf(leaf);
       }
     }
   }
@@ -139,7 +136,7 @@ export default class PDFBackgroundTintPlugin extends Plugin {
     const view = leaf.view;
     if (!view) return;
     if (view.getViewType() === 'pdf') {
-      setTimeout(() => {
+      window.setTimeout(() => {
         if (this.settings.enabled) this.applyTint();
       }, 500);
     }
@@ -177,10 +174,58 @@ export default class PDFBackgroundTintPlugin extends Plugin {
   isDarkMode(color: string): boolean {
     if (!color) return false;
     const hex = color.replace('#', '');
-    const r = parseInt(hex.substr(0, 2), 16);
-    const g = parseInt(hex.substr(2, 2), 16);
-    const b = parseInt(hex.substr(4, 2), 16);
+    const r = parseInt(hex.slice(0, 2), 16);
+    const g = parseInt(hex.slice(2, 4), 16);
+    const b = parseInt(hex.slice(4, 6), 16);
     return (r * 299 + g * 587 + b * 114) / 1000 < 128;
+  }
+
+  private buildPatternCss(pattern: string): { image: string; size: string } {
+    if (pattern === 'none') return { image: 'none', size: 'auto' };
+
+    const c = 'rgba(var(--pbt-r), var(--pbt-g), var(--pbt-b), var(--pbt-a))';
+    const dot = 'calc(var(--pbt-dot) * 1px)';
+    const gap = 'calc(var(--pbt-gap) * 1px)';
+
+    switch (pattern) {
+      case 'dot':
+        return {
+          image: `radial-gradient(circle at center, ${c} ${dot}, transparent ${dot})`,
+          size: `${gap} ${gap}`,
+        };
+      case 'grid':
+        return {
+          image: `linear-gradient(to right, ${c} 1px, transparent 1px), linear-gradient(to bottom, ${c} 1px, transparent 1px)`,
+          size: `${gap} ${gap}`,
+        };
+      case 'line':
+        return {
+          image: `linear-gradient(to bottom, transparent calc(var(--pbt-gap) * 1px - 1px), ${c} calc(var(--pbt-gap) * 1px - 1px), ${c} ${gap})`,
+          size: `100% ${gap}`,
+        };
+      case 'diagonal':
+        return {
+          image: `repeating-linear-gradient(45deg, ${c} 0px, ${c} 1px, transparent 1px, transparent ${gap})`,
+          size: `${gap} ${gap}`,
+        };
+      case 'cross':
+        return {
+          image: `linear-gradient(45deg, ${c} 1px, transparent 1px), linear-gradient(-45deg, ${c} 1px, transparent 1px)`,
+          size: `${gap} ${gap}`,
+        };
+      case 'zigzag':
+        return {
+          image: `linear-gradient(135deg, ${c} 25%, transparent 25%) -${gap} 0, linear-gradient(225deg, ${c} 25%, transparent 25%) -${gap} 0, linear-gradient(315deg, ${c} 25%, transparent 25%), linear-gradient(45deg, ${c} 25%, transparent 25%)`,
+          size: `${gap} ${gap}`,
+        };
+      case 'stripe':
+        return {
+          image: `repeating-linear-gradient(90deg, ${c} 0px, ${c} 1px, transparent 1px, transparent ${gap})`,
+          size: `${gap} 100%`,
+        };
+      default:
+        return { image: 'none', size: 'auto' };
+    }
   }
 
   applyTint() {
@@ -193,13 +238,6 @@ export default class PDFBackgroundTintPlugin extends Plugin {
     const isDark = this.isDarkMode(color);
     const blendMode = isDark ? 'screen' : 'multiply';
 
-    let style = document.getElementById(TINT_STYLE_ID) as HTMLStyleElement;
-    if (!style) {
-      style = document.createElement('style');
-      style.id = TINT_STYLE_ID;
-      document.head.appendChild(style);
-    }
-
     const tpl = this.resolveActiveTemplate();
     const pattern = tpl?.pattern || 'none';
     this.currentPattern = pattern;
@@ -208,75 +246,58 @@ export default class PDFBackgroundTintPlugin extends Plugin {
     this.currentPatternColor = tpl?.pColor || '#968c82';
     this.currentPatternOpacity = tpl?.pOpacity ?? 0.35;
 
-    let patternImage = 'none';
-    let patternSize = 'auto';
+    // Update CSS variables on document root
+    const root = document.documentElement.style;
+    root.setProperty('--pbt-bg-color', color);
+    root.setProperty('--pbt-blend', blendMode);
+    root.setProperty('--pbt-pattern', pattern);
 
-    if (pattern !== 'none') {
-      const c = `rgba(var(--pbt-r), var(--pbt-g), var(--pbt-b), var(--pbt-a))`;
-      const dot = `calc(var(--pbt-dot) * 1px)`;
-      const gap = `calc(var(--pbt-gap) * 1px)`;
-
-      switch (pattern) {
-        case 'dot':
-          patternImage = `radial-gradient(circle at center, ${c} ${dot}, transparent ${dot})`;
-          patternSize = `${gap} ${gap}`;
-          break;
-        case 'grid':
-          patternImage = `linear-gradient(to right, ${c} 1px, transparent 1px), linear-gradient(to bottom, ${c} 1px, transparent 1px)`;
-          patternSize = `${gap} ${gap}`;
-          break;
-        case 'line':
-          patternImage = `linear-gradient(to bottom, transparent calc(var(--pbt-gap) * 1px - 1px), ${c} calc(var(--pbt-gap) * 1px - 1px), ${c} ${gap})`;
-          patternSize = `100% ${gap}`;
-          break;
-        case 'diagonal':
-          patternImage = `repeating-linear-gradient(45deg, ${c} 0px, ${c} 1px, transparent 1px, transparent ${gap})`;
-          patternSize = `${gap} ${gap}`;
-          break;
-        case 'cross':
-          patternImage = [
-            `linear-gradient(45deg, ${c} 1px, transparent 1px), linear-gradient(-45deg, ${c} 1px, transparent 1px)`,
-          ].join(', ');
-          patternSize = `${gap} ${gap}`;
-          break;
-        case 'zigzag':
-          patternImage = `linear-gradient(135deg, ${c} 25%, transparent 25%) -${gap}px 0, linear-gradient(225deg, ${c} 25%, transparent 25%) -${gap}px 0, linear-gradient(315deg, ${c} 25%, transparent 25%), linear-gradient(45deg, ${c} 25%, transparent 25%)`;
-          patternSize = `${gap}px ${gap}px`;
-          break;
-        case 'stripe':
-          patternImage = `repeating-linear-gradient(90deg, ${c} 0px, ${c} 1px, transparent 1px, transparent ${gap})`;
-          patternSize = `${gap}px 100%`;
-          break;
-      }
-    }
-
-    style.textContent = `
-      .pdf-scroll-container { background-color: ${color} !important; }
-      .page {
-        background-color: ${color} !important;
-        background-image: ${patternImage} !important;
-        background-size: ${patternSize} !important;
-        background-repeat: repeat !important;
-      }
-      .page canvas,
-      .page .canvasWrapper canvas,
-      .page .textLayer,
-      .page .annotationLayer {
-        mix-blend-mode: var(--pbt-blend, ${blendMode}) !important;
-      }
-    `;
+    const { image: patternImage, size: patternSize } = this.buildPatternCss(pattern);
+    root.setProperty('--pbt-pattern-image', patternImage);
+    root.setProperty('--pbt-pattern-size', patternSize);
 
     this.updatePatternVars();
-    document.documentElement.style.setProperty('--pbt-blend', blendMode);
+
+    // Apply inline styles to PDF viewer DOM elements
+    this.applyStylesToPdfElements(color, patternImage, patternSize, blendMode);
+  }
+
+  private applyStylesToPdfElements(color: string, patternImage: string, patternSize: string, blendMode: string) {
+    // Style the PDF scroll container
+    const containers = document.querySelectorAll('.pdf-scroll-container');
+    containers.forEach(el => {
+      el.setCssProps({
+        'background-color': color,
+      });
+    });
+
+    // Style each PDF page
+    const pages = document.querySelectorAll('.page');
+    pages.forEach(el => {
+      el.setCssProps({
+        'background-color': color,
+        'background-image': patternImage,
+        'background-size': patternSize,
+        'background-repeat': 'repeat',
+      });
+    });
+
+    // Style canvas/text layers for blend mode
+    const blendTargets = document.querySelectorAll('.page canvas, .page .canvasWrapper canvas, .page .textLayer, .page .annotationLayer');
+    blendTargets.forEach(el => {
+      el.setCssProps({
+        'mix-blend-mode': blendMode,
+      });
+    });
   }
 
   updatePatternVars() {
     const root = document.documentElement.style;
     const baseColor = this.currentPatternColor || '#968c82';
     const hex = baseColor.replace('#', '');
-    root.setProperty('--pbt-r', String(parseInt(hex.substr(0, 2), 16) || 150));
-    root.setProperty('--pbt-g', String(parseInt(hex.substr(2, 2), 16) || 140));
-    root.setProperty('--pbt-b', String(parseInt(hex.substr(4, 2), 16) || 130));
+    root.setProperty('--pbt-r', String(parseInt(hex.slice(0, 2), 16) || 150));
+    root.setProperty('--pbt-g', String(parseInt(hex.slice(2, 4), 16) || 140));
+    root.setProperty('--pbt-b', String(parseInt(hex.slice(4, 6), 16) || 130));
     root.setProperty('--pbt-a', String(this.currentPatternOpacity ?? 0.35));
     root.setProperty('--pbt-gap', String(this.currentPatternGap || 28));
     root.setProperty('--pbt-dot', String(this.currentPatternSize || 1.2));
@@ -295,8 +316,31 @@ export default class PDFBackgroundTintPlugin extends Plugin {
   }
 
   removeTint() {
-    const style = document.getElementById(TINT_STYLE_ID);
-    if (style) style.remove();
+    // Remove inline styles from PDF elements
+    const containers = document.querySelectorAll('.pdf-scroll-container');
+    containers.forEach(el => {
+      (el as HTMLElement).style.removeProperty('background-color');
+    });
+
+    const pages = document.querySelectorAll('.page');
+    pages.forEach(el => {
+      const htmlEl = el as HTMLElement;
+      htmlEl.style.removeProperty('background-color');
+      htmlEl.style.removeProperty('background-image');
+      htmlEl.style.removeProperty('background-size');
+      htmlEl.style.removeProperty('background-repeat');
+    });
+
+    const blendTargets = document.querySelectorAll('.page canvas, .page .canvasWrapper canvas, .page .textLayer, .page .annotationLayer');
+    blendTargets.forEach(el => {
+      (el as HTMLElement).style.removeProperty('mix-blend-mode');
+    });
+
+    document.documentElement.style.removeProperty('--pbt-blend');
+    document.documentElement.style.removeProperty('--pbt-bg-color');
+    document.documentElement.style.removeProperty('--pbt-pattern');
+    document.documentElement.style.removeProperty('--pbt-pattern-image');
+    document.documentElement.style.removeProperty('--pbt-pattern-size');
   }
 
   async applyTemplate(key: string) {
@@ -309,9 +353,9 @@ export default class PDFBackgroundTintPlugin extends Plugin {
 // ============ Sidebar View ============
 
 class PDFBackgroundTintView extends ItemView {
-  private plugin: PDFBackgroundTintPlugin;
+  private plugin: FleurPdfTintPlugin;
 
-  constructor(leaf: WorkspaceLeaf, plugin: PDFBackgroundTintPlugin) {
+  constructor(leaf: WorkspaceLeaf, plugin: FleurPdfTintPlugin) {
     super(leaf);
     this.plugin = plugin;
   }
@@ -328,7 +372,7 @@ class PDFBackgroundTintView extends ItemView {
       if (card) {
         const key = (card as HTMLElement).dataset.key;
         if (key !== undefined) {
-          this.plugin.applyTemplate(key);
+          void this.plugin.applyTemplate(key);
           this.updateActiveCard(key);
         }
       }
@@ -381,9 +425,7 @@ class PDFBackgroundTintView extends ItemView {
     });
     settingsBtn.setText('⚙');
     settingsBtn.addEventListener('click', () => {
-      const app = this.app as unknown as {
-        setting: { open(): void; openTabById(id: string): void };
-      };
+      const app = this.app as App;
       if (app.setting) {
         app.setting.open();
         app.setting.openTabById('fleurpdf-tint');
@@ -446,9 +488,9 @@ class PDFBackgroundTintView extends ItemView {
     const opacity = pOpacity ?? this.plugin.currentPatternOpacity ?? 0.35;
     const baseColor = pColor || this.plugin.currentPatternColor || '#968c82';
     const hex = baseColor.replace('#', '');
-    const r = parseInt(hex.substr(0, 2), 16) || 150;
-    const g = parseInt(hex.substr(2, 2), 16) || 140;
-    const b = parseInt(hex.substr(4, 2), 16) || 130;
+    const r = parseInt(hex.slice(0, 2), 16) || 150;
+    const g = parseInt(hex.slice(2, 4), 16) || 140;
+    const b = parseInt(hex.slice(4, 6), 16) || 130;
     const c = `rgba(${r}, ${g}, ${b}, ${opacity})`;
 
     const gapPx = gap || this.plugin.currentPatternGap || 8;
@@ -475,29 +517,29 @@ class PDFBackgroundTintView extends ItemView {
 // ============ Template Edit Modal ============
 
 class TemplateEditModal extends Modal {
-  private plugin: PDFBackgroundTintPlugin;
+  private plugin: FleurPdfTintPlugin;
   private template: PDFTemplate;
   private isNew: boolean;
   private onSave: (tpl: PDFTemplate) => void;
+  private paramsEl: HTMLElement;
 
-  constructor(app: App, plugin: PDFBackgroundTintPlugin, template: PDFTemplate, isNew: boolean, onSave: (tpl: PDFTemplate) => void) {
+  constructor(app: App, plugin: FleurPdfTintPlugin, template: PDFTemplate, isNew: boolean, onSave: (tpl: PDFTemplate) => void) {
     super(app);
     this.plugin = plugin;
-    this.template = { ...template }; // work on a copy
+    this.template = { ...template };
     this.isNew = isNew;
     this.onSave = onSave;
+    this.paramsEl = null as unknown as HTMLElement;
   }
 
   onOpen() {
     const { contentEl } = this;
     contentEl.empty();
     contentEl.addClass('pbt-modal');
-    contentEl.style.fontFamily = "var(--pbt-font)";
 
     const title = this.isNew ? 'Create Template' : 'Edit Template';
-    contentEl.createEl('h2', { text: title });
+    new Setting(contentEl).setName(title).setHeading();
 
-    // Name
     new Setting(contentEl)
       .setName('Template name')
       .addText(text => text
@@ -505,7 +547,6 @@ class TemplateEditModal extends Modal {
         .setPlaceholder('Enter template name')
         .onChange(val => { this.template.name = val; }));
 
-    // Color
     new Setting(contentEl)
       .setName('Background color')
       .addColorPicker(picker => {
@@ -513,7 +554,6 @@ class TemplateEditModal extends Modal {
         picker.onChange(val => { this.template.color = val; });
       });
 
-    // Pattern
     new Setting(contentEl)
       .setName('Pattern overlay')
       .setDesc('Select a pattern to overlay on the background')
@@ -528,11 +568,9 @@ class TemplateEditModal extends Modal {
         });
       });
 
-    // Pattern params (only shown when pattern is not 'none')
     this.paramsEl = contentEl.createDiv({ cls: 'pbt-modal-params' });
     this.refreshParams();
 
-    // Footer buttons
     const footer = contentEl.createDiv({ cls: 'pbt-modal-footer' });
     footer.createEl('button', { text: this.isNew ? 'Create' : 'Save', cls: 'mod-cta' })
       .addEventListener('click', () => {
@@ -560,7 +598,7 @@ class TemplateEditModal extends Modal {
       .addSlider(slider => slider
         .setLimits(14, 60, 2)
         .setValue(this.template.patternGap)
-        .setDynamicTooltip()
+        .showTooltip()
         .onChange(val => { this.template.patternGap = val; }));
 
     new Setting(this.paramsEl)
@@ -569,7 +607,7 @@ class TemplateEditModal extends Modal {
       .addSlider(slider => slider
         .setLimits(0.5, 4, 0.1)
         .setValue(this.template.patternSize)
-        .setDynamicTooltip()
+        .showTooltip()
         .onChange(val => { this.template.patternSize = val; }));
 
     new Setting(this.paramsEl)
@@ -584,7 +622,7 @@ class TemplateEditModal extends Modal {
       .addSlider(slider => slider
         .setLimits(0, 100, 5)
         .setValue(Math.round(this.template.patternOpacity * 100))
-        .setDynamicTooltip()
+        .showTooltip()
         .onChange(val => { this.template.patternOpacity = val / 100; }));
   }
 
@@ -596,20 +634,23 @@ class TemplateEditModal extends Modal {
 // ============ Settings Tab ============
 
 class PDFBackgroundTintSettingTab extends PluginSettingTab {
-  plugin: PDFBackgroundTintPlugin;
+  plugin: FleurPdfTintPlugin;
 
-  constructor(app: App, plugin: PDFBackgroundTintPlugin) {
+  constructor(app: App, plugin: FleurPdfTintPlugin) {
     super(app, plugin);
     this.plugin = plugin;
+  }
+
+  getSettingDefinitions(): SettingDefinition[] {
+    return [];
   }
 
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
 
-    containerEl.createEl('h2', { text: 'FleurPDF tint' });
+    new Setting(containerEl).setName('FleurPDF tint').setHeading();
 
-    // === Enable ===
     new Setting(containerEl)
       .setName('Enable background tint')
       .setDesc('Toggle the background color effect on PDF pages')
@@ -622,8 +663,7 @@ class PDFBackgroundTintSettingTab extends PluginSettingTab {
           else this.plugin.removeTint();
         }));
 
-    // === Custom Templates ===
-    containerEl.createEl('h3', { text: 'Custom Templates' });
+    new Setting(containerEl).setName('Custom Templates').setHeading();
 
     const customTemplates = this.plugin.settings.customTemplates;
 
@@ -644,28 +684,28 @@ class PDFBackgroundTintSettingTab extends PluginSettingTab {
             .setDisabled(isActive)
             .onClick(async () => {
               await this.plugin.applyTemplate(CUSTOM_PREFIX + tpl.id);
-              this.display();
+              this.update();
             }))
           .addButton(btn => btn
             .setButtonText('Edit')
             .onClick(() => {
-              new TemplateEditModal(this.app, this.plugin, tpl, false, async (updated: PDFTemplate) => {
+              void new TemplateEditModal(this.app, this.plugin, tpl, false, async (updated: PDFTemplate) => {
                 Object.assign(tpl, updated);
                 await this.plugin.saveSettings();
                 if (isActive && this.plugin.settings.enabled) this.plugin.applyTint();
-                this.display();
+                this.update();
               }).open();
             }))
           .addButton(btn => btn
             .setButtonText('Delete')
             .onClick(() => {
-              const modal = new Modal(this.app);
-              modal.titleEl.setText('Delete Template');
-              const msg = modal.contentEl.createEl('p');
+              const confirmModal = new Modal(this.app);
+              confirmModal.titleEl.setText('Delete Template');
+              const msg = confirmModal.contentEl.createEl('p');
               msg.setText(`Are you sure you want to delete "${tpl.name}"?`);
               msg.setCssStyles({ margin: '16px 0 24px', color: 'var(--text-muted)' });
 
-              const btnRow = modal.contentEl.createDiv({ cls: 'pbt-modal-footer' });
+              const btnRow = confirmModal.contentEl.createDiv({ cls: 'pbt-modal-footer' });
               const deleteBtn = btnRow.createEl('button', { text: 'Delete', cls: 'mod-cta' });
               deleteBtn.setCssStyles({ background: 'var(--interactive-accent)', color: '#fff' });
               deleteBtn.addEventListener('click', async () => {
@@ -678,16 +718,15 @@ class PDFBackgroundTintSettingTab extends PluginSettingTab {
                   await this.plugin.saveSettings();
                   if (this.plugin.settings.enabled) this.plugin.applyTint();
                 }
-                modal.close();
-                setTimeout(() => this.display(), 100);
+                confirmModal.close();
+                window.setTimeout(() => this.update(), 100);
               });
-              btnRow.createEl('button', { text: 'Cancel' }).addEventListener('click', () => modal.close());
-              modal.open();
+              btnRow.createEl('button', { text: 'Cancel' }).addEventListener('click', () => confirmModal.close());
+              confirmModal.open();
             }));
       }
     }
 
-    // === Add Template ===
     new Setting(containerEl)
       .setName('Create new template')
       .setDesc('Generate a new custom template with default settings, then customize it')
@@ -696,37 +735,36 @@ class PDFBackgroundTintSettingTab extends PluginSettingTab {
         .setCta()
         .onClick(() => {
           const tpl = makeDefaultTemplate();
-          new TemplateEditModal(this.app, this.plugin, tpl, true, async (newTpl: PDFTemplate) => {
+          void new TemplateEditModal(this.app, this.plugin, tpl, true, async (newTpl: PDFTemplate) => {
             this.plugin.settings.customTemplates.push(newTpl);
             await this.plugin.saveSettings();
-            this.display();
+            this.update();
           }).open();
         }));
 
-    // === Reset ===
     new Setting(containerEl)
       .setName('Reset to defaults')
       .setDesc('Reset active template to None and clear all custom templates')
       .addButton(button => button
         .setButtonText('Reset')
         .onClick(() => {
-          const modal = new Modal(this.app);
-          modal.titleEl.setText('Reset to Defaults');
-          const msg = modal.contentEl.createEl('p');
+          const confirmModal = new Modal(this.app);
+          confirmModal.titleEl.setText('Reset to Defaults');
+          const msg = confirmModal.contentEl.createEl('p');
           msg.setText('This will reset to None and delete all custom templates.');
           msg.setCssStyles({ margin: '16px 0 24px', color: 'var(--text-muted)' });
 
-          const btnRow = modal.contentEl.createDiv({ cls: 'pbt-modal-footer' });
+          const btnRow = confirmModal.contentEl.createDiv({ cls: 'pbt-modal-footer' });
           btnRow.createEl('button', { text: 'Reset', cls: 'mod-cta' }).setCssStyles({ background: 'var(--interactive-accent)', color: '#fff' }).addEventListener('click', async () => {
             this.plugin.settings.activePreset = 'none';
             this.plugin.settings.customTemplates = [];
             await this.plugin.saveSettings();
             this.plugin.applyTint();
-            modal.close();
-            this.display();
+            confirmModal.close();
+            this.update();
           });
-          btnRow.createEl('button', { text: 'Cancel' }).addEventListener('click', () => modal.close());
-          modal.open();
+          btnRow.createEl('button', { text: 'Cancel' }).addEventListener('click', () => confirmModal.close());
+          confirmModal.open();
         }));
   }
 }
