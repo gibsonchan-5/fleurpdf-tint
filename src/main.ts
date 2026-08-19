@@ -648,6 +648,7 @@ class PDFBackgroundTintSettingTab extends PluginSettingTab {
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
+    containerEl.addClass('pbt-setting-tab');
 
     new Setting(containerEl).setName('FleurPDF tint').setHeading();
 
