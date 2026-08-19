@@ -1,7 +1,7 @@
 {
   "id": "fleurpdf-tint",
   "name": "FleurPDF tint",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "minAppVersion": "1.13.0",
   "description": "Change PDF page background color for better reading experience. Supports presets, custom templates, and pattern overlays.",
   "author": "gibsonchan-5",
