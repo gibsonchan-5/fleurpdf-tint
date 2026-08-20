@@ -1,4 +1,4 @@
-import { Plugin, ItemView, WorkspaceLeaf, Setting, PluginSettingTab, App, Modal, SettingDefinition } from 'obsidian';
+import { Plugin, ItemView, WorkspaceLeaf, Setting, PluginSettingTab, App, Modal, SettingDefinition, SliderComponent, ColorComponent } from 'obsidian';
 
 // ============ Types ============
 
@@ -246,50 +246,54 @@ export default class FleurPdfTintPlugin extends Plugin {
     this.currentPatternColor = tpl?.pColor || '#968c82';
     this.currentPatternOpacity = tpl?.pOpacity ?? 0.35;
 
-    // Update CSS variables on document root
-    const root = document.documentElement.style;
-    root.setProperty('--pbt-bg-color', color);
-    root.setProperty('--pbt-blend', blendMode);
-    root.setProperty('--pbt-pattern', pattern);
+    const props: Record<string, string> = {
+      '--pbt-bg-color': color,
+      '--pbt-blend': blendMode,
+      '--pbt-pattern': pattern,
+    };
 
     const { image: patternImage, size: patternSize } = this.buildPatternCss(pattern);
-    root.setProperty('--pbt-pattern-image', patternImage);
-    root.setProperty('--pbt-pattern-size', patternSize);
+    props['--pbt-pattern-image'] = patternImage;
+    props['--pbt-pattern-size'] = patternSize;
+
+    document.body.setCssProps(props);
 
     this.updatePatternVars();
   }
 
   updatePatternVars() {
-    const root = document.documentElement.style;
     const baseColor = this.currentPatternColor || '#968c82';
     const hex = baseColor.replace('#', '');
-    root.setProperty('--pbt-r', String(parseInt(hex.slice(0, 2), 16) || 150));
-    root.setProperty('--pbt-g', String(parseInt(hex.slice(2, 4), 16) || 140));
-    root.setProperty('--pbt-b', String(parseInt(hex.slice(4, 6), 16) || 130));
-    root.setProperty('--pbt-a', String(this.currentPatternOpacity ?? 0.35));
-    root.setProperty('--pbt-gap', String(this.currentPatternGap || 28));
-    root.setProperty('--pbt-dot', String(this.currentPatternSize || 1.2));
+    document.body.setCssProps({
+      '--pbt-r': String(parseInt(hex.slice(0, 2), 16) || 150),
+      '--pbt-g': String(parseInt(hex.slice(2, 4), 16) || 140),
+      '--pbt-b': String(parseInt(hex.slice(4, 6), 16) || 130),
+      '--pbt-a': String(this.currentPatternOpacity ?? 0.35),
+      '--pbt-gap': String(this.currentPatternGap || 28),
+      '--pbt-dot': String(this.currentPatternSize || 1.2),
+    });
   }
 
   startDragging() {
     this.isDragging = true;
-    document.documentElement.style.setProperty('--pbt-blend', 'normal');
+    document.body.setCssProps({ '--pbt-blend': 'normal' });
   }
 
   stopDragging() {
     this.isDragging = false;
     const color = this.getActiveColor();
     const blendMode = color && this.isDarkMode(color) ? 'screen' : 'multiply';
-    document.documentElement.style.setProperty('--pbt-blend', blendMode);
+    document.body.setCssProps({ '--pbt-blend': blendMode });
   }
 
   removeTint() {
-    const root = document.documentElement.style;
-    root.removeProperty('--pbt-blend');
-    root.removeProperty('--pbt-bg-color');
-    root.removeProperty('--pbt-pattern');
-    root.removeProperty('--pbt-pattern-image');
-    root.removeProperty('--pbt-pattern-size');
+    document.body.setCssProps({
+      '--pbt-blend': '',
+      '--pbt-bg-color': '',
+      '--pbt-pattern': '',
+      '--pbt-pattern-image': '',
+      '--pbt-pattern-size': '',
+    });
   }
 
   async applyTemplate(key: string) {
@@ -377,7 +381,9 @@ class PDFBackgroundTintView extends ItemView {
     });
     settingsBtn.setText('⚙');
     settingsBtn.addEventListener('click', () => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       this.app.setting.open();
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       this.app.setting.openTabById('fleurpdf-tint');
     });
 
@@ -471,10 +477,10 @@ class TemplateEditModal extends Modal {
   private plugin: FleurPdfTintPlugin;
   private template: PDFTemplate;
   private isNew: boolean;
-  private onSave: (tpl: PDFTemplate) => void;
+  private onSave: (tpl: PDFTemplate) => Promise<void>;
   private paramsEl: HTMLElement;
 
-  constructor(app: App, plugin: FleurPdfTintPlugin, template: PDFTemplate, isNew: boolean, onSave: (tpl: PDFTemplate) => void) {
+  constructor(app: App, plugin: FleurPdfTintPlugin, template: PDFTemplate, isNew: boolean, onSave: (tpl: PDFTemplate) => Promise<void>) {
     super(app);
     this.plugin = plugin;
     this.template = { ...template };
@@ -546,35 +552,38 @@ class TemplateEditModal extends Modal {
     new Setting(this.paramsEl)
       .setName('Spacing')
       .setDesc('Distance between pattern elements')
-      .addSlider(slider => slider
-        .setLimits(14, 60, 2)
-        .setValue(this.template.patternGap)
-        .showTooltip()
-        .onChange((val: number) => { this.template.patternGap = val; }));
+      .addSlider((slider: SliderComponent) => {
+        slider.setLimits(14, 60, 2);
+        slider.setValue(this.template.patternGap);
+        slider.showTooltip();
+        slider.onChange((val: number) => { this.template.patternGap = val; });
+      });
 
     new Setting(this.paramsEl)
       .setName('Size')
       .setDesc('Size of pattern elements')
-      .addSlider(slider => slider
-        .setLimits(0.5, 4, 0.1)
-        .setValue(this.template.patternSize)
-        .showTooltip()
-        .onChange((val: number) => { this.template.patternSize = val; }));
+      .addSlider((slider: SliderComponent) => {
+        slider.setLimits(0.5, 4, 0.1);
+        slider.setValue(this.template.patternSize);
+        slider.showTooltip();
+        slider.onChange((val: number) => { this.template.patternSize = val; });
+      });
 
     new Setting(this.paramsEl)
       .setName('Pattern color')
-      .addColorPicker(picker => {
+      .addColorPicker((picker: ColorComponent) => {
         picker.setValue(this.template.patternColor);
-        picker.onChange(val => { this.template.patternColor = val; });
+        picker.onChange((val: string) => { this.template.patternColor = val; });
       });
 
     new Setting(this.paramsEl)
       .setName('Pattern opacity')
-      .addSlider(slider => slider
-        .setLimits(0, 100, 5)
-        .setValue(Math.round(this.template.patternOpacity * 100))
-        .showTooltip()
-        .onChange((val: number) => { this.template.patternOpacity = val / 100; }));
+      .addSlider((slider: SliderComponent) => {
+        slider.setLimits(0, 100, 5);
+        slider.setValue(Math.round(this.template.patternOpacity * 100));
+        slider.showTooltip();
+        slider.onChange((val: number) => { this.template.patternOpacity = val / 100; });
+      });
   }
 
   onClose() {
@@ -596,12 +605,13 @@ class PDFBackgroundTintSettingTab extends PluginSettingTab {
     return [];
   }
 
+  // eslint-disable-next-line obsidianmd/settings-tab/no-deprecated-display
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
     containerEl.addClass('pbt-setting-tab');
 
-    new Setting(containerEl).setName('Settings').setHeading();
+    new Setting(containerEl).setName('Templates').setHeading();
 
     new Setting(containerEl)
       .setName('Enable background tint')
@@ -634,9 +644,11 @@ class PDFBackgroundTintSettingTab extends PluginSettingTab {
           .addButton(btn => btn
             .setButtonText(isActive ? 'Active' : 'Apply')
             .setDisabled(isActive)
-            .onClick(async () => {
-              await this.plugin.applyTemplate(CUSTOM_PREFIX + tpl.id);
-              this.update();
+            .onClick(() => {
+              void (async () => {
+                await this.plugin.applyTemplate(CUSTOM_PREFIX + tpl.id);
+                this.update();
+              })();
             }))
           .addButton(btn => btn
             .setButtonText('Edit')
