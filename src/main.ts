@@ -381,10 +381,10 @@ class PDFBackgroundTintView extends ItemView {
     });
     settingsBtn.setText('⚙');
     settingsBtn.addEventListener('click', () => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- Obsidian API types these as any */
       this.app.setting.open();
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       this.app.setting.openTabById('fleurpdf-tint');
+      /* eslint-enable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
     });
 
     // === Built-in Presets (read-only) ===
@@ -534,7 +534,7 @@ class TemplateEditModal extends Modal {
         if (!this.template.name.trim()) {
           this.template.name = 'Untitled';
         }
-        this.onSave(this.template);
+        void this.onSave(this.template);
         this.close();
       });
     footer.createEl('button', { text: 'Cancel' })
@@ -555,7 +555,7 @@ class TemplateEditModal extends Modal {
       .addSlider((slider: SliderComponent) => {
         slider.setLimits(14, 60, 2);
         slider.setValue(this.template.patternGap);
-        slider.showTooltip();
+        slider.setDynamicTooltip();
         slider.onChange((val: number) => { this.template.patternGap = val; });
       });
 
@@ -565,7 +565,7 @@ class TemplateEditModal extends Modal {
       .addSlider((slider: SliderComponent) => {
         slider.setLimits(0.5, 4, 0.1);
         slider.setValue(this.template.patternSize);
-        slider.showTooltip();
+        slider.setDynamicTooltip();
         slider.onChange((val: number) => { this.template.patternSize = val; });
       });
 
@@ -581,7 +581,7 @@ class TemplateEditModal extends Modal {
       .addSlider((slider: SliderComponent) => {
         slider.setLimits(0, 100, 5);
         slider.setValue(Math.round(this.template.patternOpacity * 100));
-        slider.showTooltip();
+        slider.setDynamicTooltip();
         slider.onChange((val: number) => { this.template.patternOpacity = val / 100; });
       });
   }
@@ -605,8 +605,11 @@ class PDFBackgroundTintSettingTab extends PluginSettingTab {
     return [];
   }
 
-  // eslint-disable-next-line obsidianmd/settings-tab/no-deprecated-display
   display(): void {
+    this.update();
+  }
+
+  update(): void {
     const { containerEl } = this;
     containerEl.empty();
     containerEl.addClass('pbt-setting-tab');
