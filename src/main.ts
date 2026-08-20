@@ -381,10 +381,10 @@ class PDFBackgroundTintView extends ItemView {
     });
     settingsBtn.setText('⚙');
     settingsBtn.addEventListener('click', () => {
-      /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access -- Obsidian API types these as any */
-      this.app.setting.open();
-      this.app.setting.openTabById('fleurpdf-tint');
-      /* eslint-enable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
+      // Use type assertion to avoid unsafe-call warnings (Obsidian types setting as any)
+      const setting = this.app.setting as { open: () => void; openTabById: (id: string) => void };
+      setting.open();
+      setting.openTabById('fleurpdf-tint');
     });
 
     // === Built-in Presets (read-only) ===
