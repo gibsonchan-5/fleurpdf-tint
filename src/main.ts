@@ -636,6 +636,10 @@ class PDFBackgroundTintSettingTab extends PluginSettingTab {
     return [];
   }
 
+  display(): void {
+    this.update();
+  }
+
   update(): void {
     const { containerEl } = this;
     containerEl.empty();
