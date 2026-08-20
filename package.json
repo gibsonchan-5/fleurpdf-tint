@@ -1,6 +1,6 @@
 {
   "name": "fleurpdf-tint",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "PDF background color tinter for Obsidian",
   "main": "main.js",
   "scripts": {
