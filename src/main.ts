@@ -589,7 +589,6 @@ class TemplateEditModal extends Modal {
       .addSlider((slider: SliderComponent) => {
         slider.setLimits(14, 60, 2);
         slider.setValue(this.template.patternGap);
-        slider.setDynamicTooltip();
         slider.onChange((val: number) => { this.template.patternGap = val; });
       });
 
@@ -599,7 +598,6 @@ class TemplateEditModal extends Modal {
       .addSlider((slider: SliderComponent) => {
         slider.setLimits(0.5, 4, 0.1);
         slider.setValue(this.template.patternSize);
-        slider.setDynamicTooltip();
         slider.onChange((val: number) => { this.template.patternSize = val; });
       });
 
@@ -615,7 +613,6 @@ class TemplateEditModal extends Modal {
       .addSlider((slider: SliderComponent) => {
         slider.setLimits(0, 100, 5);
         slider.setValue(Math.round(this.template.patternOpacity * 100));
-        slider.setDynamicTooltip();
         slider.onChange((val: number) => { this.template.patternOpacity = val / 100; });
       });
   }

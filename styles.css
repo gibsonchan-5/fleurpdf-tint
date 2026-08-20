@@ -672,22 +672,22 @@
 
 /* ==================== PDF Page Tint ==================== */
 
-.pdf-scroll-container {
-  background-color: var(--pbt-bg-color) !important;
+body .workspace .pdf-scroll-container {
+  background-color: var(--pbt-bg-color);
 }
 
-.page {
-  background-color: var(--pbt-bg-color) !important;
-  background-image: var(--pbt-pattern-image) !important;
-  background-size: var(--pbt-pattern-size) !important;
-  background-repeat: repeat !important;
+body .workspace .view-content .page {
+  background-color: var(--pbt-bg-color);
+  background-image: var(--pbt-pattern-image);
+  background-size: var(--pbt-pattern-size);
+  background-repeat: repeat;
 }
 
-.page canvas,
-.page .canvasWrapper canvas,
-.page .textLayer,
-.page .annotationLayer {
-  mix-blend-mode: var(--pbt-blend) !important;
+body .workspace .view-content .page canvas,
+body .workspace .view-content .page .canvasWrapper canvas,
+body .workspace .view-content .page .textLayer,
+body .workspace .view-content .page .annotationLayer {
+  mix-blend-mode: var(--pbt-blend);
 }
 
 /* ==================== Modal ==================== */
