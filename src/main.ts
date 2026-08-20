@@ -43,8 +43,6 @@ const PATTERN_OPTIONS: Record<string, { name: string; icon: string }> = {
   'grid':      { name: 'Grid',      icon: '#' },
   'line':      { name: 'Line',      icon: '—' },
   'diagonal':  { name: 'Diagonal',  icon: '/' },
-  'cross':     { name: 'Cross',     icon: '✕' },
-  'zigzag':    { name: 'Zigzag',    icon: '' },
   'stripe':    { name: 'Stripe',    icon: '‖' },
 };
 
@@ -219,16 +217,6 @@ export default class FleurPdfTintPlugin extends Plugin {
           image: `repeating-linear-gradient(45deg, ${c} 0px, ${c} 1px, transparent 1px, transparent ${gap})`,
           size: `${gap} ${gap}`,
         };
-      case 'cross':
-        return {
-          image: `linear-gradient(45deg, ${c} 1px, transparent 1px), linear-gradient(-45deg, ${c} 1px, transparent 1px)`,
-          size: `${gap} ${gap}`,
-        };
-      case 'zigzag':
-        return {
-          image: `linear-gradient(135deg, ${c} 25%, transparent 25%) -${gap} 0, linear-gradient(225deg, ${c} 25%, transparent 25%) -${gap} 0, linear-gradient(315deg, ${c} 25%, transparent 25%), linear-gradient(45deg, ${c} 25%, transparent 25%)`,
-          size: `${gap} ${gap}`,
-        };
       case 'stripe':
         return {
           image: `repeating-linear-gradient(90deg, ${c} 0px, ${c} 1px, transparent 1px, transparent ${gap})`,
@@ -280,14 +268,6 @@ export default class FleurPdfTintPlugin extends Plugin {
         break;
       case 'diagonal':
         patternImage = `repeating-linear-gradient(45deg, ${c} 0px, ${c} 1px, transparent 1px, transparent ${gap})`;
-        patternSize = `${gap} ${gap}`;
-        break;
-      case 'cross':
-        patternImage = `linear-gradient(45deg, ${c} 1px, transparent 1px), linear-gradient(-45deg, ${c} 1px, transparent 1px)`;
-        patternSize = `${gap} ${gap}`;
-        break;
-      case 'zigzag':
-        patternImage = `linear-gradient(135deg, ${c} 25%, transparent 25%) -${gap} 0, linear-gradient(225deg, ${c} 25%, transparent 25%) -${gap} 0, linear-gradient(315deg, ${c} 25%, transparent 25%), linear-gradient(45deg, ${c} 25%, transparent 25%)`;
         patternSize = `${gap} ${gap}`;
         break;
       case 'stripe':
@@ -716,7 +696,7 @@ class PDFBackgroundTintSettingTab extends PluginSettingTab {
           modal.open();
         });
 
-        btnWrap.createEl('button', { cls: 'pbt-btn pbt-btn-danger', text: 'Delete' }).addEventListener('click', () => {
+        btnWrap.createEl('button', { cls: 'pbt-btn', text: 'Delete' }).addEventListener('click', () => {
           const confirmModal = new Modal(this.app);
           confirmModal.titleEl.setText('Delete Template');
           const msg = confirmModal.contentEl.createEl('p');
