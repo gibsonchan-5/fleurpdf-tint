@@ -670,6 +670,26 @@
   border-radius: 3px;
 }
 
+/* ==================== PDF Page Tint ==================== */
+
+.pdf-scroll-container {
+  background-color: var(--pbt-bg-color) !important;
+}
+
+.page {
+  background-color: var(--pbt-bg-color) !important;
+  background-image: var(--pbt-pattern-image) !important;
+  background-size: var(--pbt-pattern-size) !important;
+  background-repeat: repeat !important;
+}
+
+.page canvas,
+.page .canvasWrapper canvas,
+.page .textLayer,
+.page .annotationLayer {
+  mix-blend-mode: var(--pbt-blend) !important;
+}
+
 /* ==================== Modal ==================== */
 
 /* Modal footer buttons — divider from params above */
@@ -856,3 +876,4 @@
 .pbt-sidebar button:active {
   box-shadow: var(--pbt-shadow-xs);
 }
+

@@ -48,6 +48,7 @@ const PATTERN_OPTIONS: Record<string, { name: string; icon: string }> = {
   'stripe':    { name: 'Stripe',    icon: '‖' },
 };
 
+const TINT_STYLE_ID = 'fleurpdf-tint-style';
 const VIEW_TYPE = 'fleurpdf-tint-view';
 const CUSTOM_PREFIX = 'custom-';
 
@@ -238,6 +239,14 @@ export default class FleurPdfTintPlugin extends Plugin {
     const isDark = this.isDarkMode(color);
     const blendMode = isDark ? 'screen' : 'multiply';
 
+    // Inject a <style> tag with CSS rules targeting Obsidian PDF viewer elements
+    let style = document.getElementById(TINT_STYLE_ID) as HTMLStyleElement;
+    if (!style) {
+      style = document.createElement('style');
+      style.id = TINT_STYLE_ID;
+      document.head.appendChild(style);
+    }
+
     const tpl = this.resolveActiveTemplate();
     const pattern = tpl?.pattern || 'none';
     this.currentPattern = pattern;
@@ -246,17 +255,66 @@ export default class FleurPdfTintPlugin extends Plugin {
     this.currentPatternColor = tpl?.pColor || '#968c82';
     this.currentPatternOpacity = tpl?.pOpacity ?? 0.35;
 
-    const props: Record<string, string> = {
-      '--pbt-bg-color': color,
-      '--pbt-blend': blendMode,
-      '--pbt-pattern': pattern,
-    };
+    let patternImage = 'none';
+    let patternSize = 'auto';
 
-    const { image: patternImage, size: patternSize } = this.buildPatternCss(pattern);
-    props['--pbt-pattern-image'] = patternImage;
-    props['--pbt-pattern-size'] = patternSize;
+    if (pattern !== 'none') {
+      const c = `rgba(var(--pbt-r), var(--pbt-g), var(--pbt-b), var(--pbt-a))`;
+      const dot = `calc(var(--pbt-dot) * 1px)`;
+      const gap = `calc(var(--pbt-gap) * 1px)`;
 
-    document.body.setCssProps(props);
+      switch (pattern) {
+        case 'dot':
+          patternImage = `radial-gradient(circle at center, ${c} ${dot}, transparent ${dot})`;
+          patternSize = `${gap} ${gap}`;
+          break;
+        case 'grid':
+          patternImage = `linear-gradient(to right, ${c} 1px, transparent 1px), linear-gradient(to bottom, ${c} 1px, transparent 1px)`;
+          patternSize = `${gap} ${gap}`;
+          break;
+        case 'line':
+          patternImage = `linear-gradient(to bottom, transparent calc(var(--pbt-gap) * 1px - 1px), ${c} calc(var(--pbt-gap) * 1px - 1px), ${c} ${gap})`;
+          patternSize = `100% ${gap}`;
+          break;
+        case 'diagonal':
+          patternImage = `repeating-linear-gradient(45deg, ${c} 0px, ${c} 1px, transparent 1px, transparent ${gap})`;
+          patternSize = `${gap} ${gap}`;
+          break;
+        case 'cross':
+          patternImage = `linear-gradient(45deg, ${c} 1px, transparent 1px), linear-gradient(-45deg, ${c} 1px, transparent 1px)`;
+          patternSize = `${gap} ${gap}`;
+          break;
+        case 'zigzag':
+          patternImage = `linear-gradient(135deg, ${c} 25%, transparent 25%) -${gap} 0, linear-gradient(225deg, ${c} 25%, transparent 25%) -${gap} 0, linear-gradient(315deg, ${c} 25%, transparent 25%), linear-gradient(45deg, ${c} 25%, transparent 25%)`;
+          patternSize = `${gap}px ${gap}px`;
+          break;
+        case 'stripe':
+          patternImage = `repeating-linear-gradient(90deg, ${c} 0px, ${c} 1px, transparent 1px, transparent ${gap})`;
+          patternSize = `${gap}px 100%`;
+          break;
+      }
+    }
+
+    // Set CSS variables at body level so they inherit into the PDF viewer,
+    // plus direct background rules on PDF elements as fallback
+    style.textContent = [
+      `body {`,
+      `  --pdf-background: ${color} !important;`,
+      `  --pdf-page-background: ${color} !important;`,
+      `}`,
+      `.pdf-container, .pdf-scroll-container {`,
+      `  background-color: ${color} !important;`,
+      `}`,
+      `.page {`,
+      `  background-color: ${color} !important;`,
+      `  background-image: ${patternImage} !important;`,
+      `  background-size: ${patternSize} !important;`,
+      `  background-repeat: repeat !important;`,
+      `}`,
+      `.page canvas, .page .canvasWrapper canvas, .page .textLayer, .page .annotationLayer {`,
+      `  mix-blend-mode: ${blendMode} !important;`,
+      `}`,
+    ].join('\n');
 
     this.updatePatternVars();
   }
@@ -287,13 +345,8 @@ export default class FleurPdfTintPlugin extends Plugin {
   }
 
   removeTint() {
-    document.body.setCssProps({
-      '--pbt-blend': '',
-      '--pbt-bg-color': '',
-      '--pbt-pattern': '',
-      '--pbt-pattern-image': '',
-      '--pbt-pattern-size': '',
-    });
+    const style = document.getElementById(TINT_STYLE_ID);
+    if (style) style.remove();
   }
 
   async applyTemplate(key: string) {
