@@ -115,6 +115,17 @@ export default class FleurPdfTintPlugin extends Plugin {
   async saveSettings() {
     await this.saveData(this.settings);
     this.updateStatusBar();
+    this.refreshSidebarView();
+  }
+
+  refreshSidebarView() {
+    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE);
+    for (const leaf of leaves) {
+      const view = leaf.view as PDFBackgroundTintView;
+      if (typeof view.render === 'function') {
+        view.render();
+      }
+    }
   }
 
   async activateSidebar() {
@@ -672,58 +683,66 @@ class PDFBackgroundTintSettingTab extends PluginSettingTab {
         const isActive = this.plugin.settings.activePreset === CUSTOM_PREFIX + tpl.id;
         const desc = `${PATTERN_OPTIONS[tpl.pattern]?.name || 'None'} · Gap ${tpl.patternGap}px · Size ${tpl.patternSize}px · ${Math.round(tpl.patternOpacity * 100)}%`;
 
-        new Setting(containerEl)
-          .setName(tpl.name)
-          .setDesc(desc)
-          .addButton(btn => btn
-            .setButtonText(isActive ? 'Active' : 'Apply')
-            .setDisabled(isActive)
-            .onClick(() => {
-              void (async () => {
-                await this.plugin.applyTemplate(CUSTOM_PREFIX + tpl.id);
-                this.update();
-              })();
-            }))
-          .addButton(btn => btn
-            .setButtonText('Edit')
-            .onClick(() => {
-              const modal = new TemplateEditModal(this.app, this.plugin, tpl, false, async (updated: PDFTemplate) => {
-                Object.assign(tpl, updated);
-                await this.plugin.saveSettings();
-                if (isActive && this.plugin.settings.enabled) this.plugin.applyTint();
-                this.update();
-              });
-              modal.open();
-            }))
-          .addButton(btn => btn
-            .setButtonText('Delete')
-            .onClick(() => {
-              const confirmModal = new Modal(this.app);
-              confirmModal.titleEl.setText('Delete Template');
-              const msg = confirmModal.contentEl.createEl('p');
-              msg.setText(`Are you sure you want to delete "${tpl.name}"?`);
-              msg.setCssStyles({ margin: '16px 0 24px', color: 'var(--text-muted)' });
+        const row = containerEl.createDiv({ cls: 'pbt-custom-row' });
 
-              const btnRow = confirmModal.contentEl.createDiv({ cls: 'pbt-modal-footer' });
-              const deleteBtn = btnRow.createEl('button', { text: 'Delete', cls: 'mod-cta' });
-              deleteBtn.setCssStyles({ background: 'var(--interactive-accent)', color: '#fff' });
-              const handleDelete = async () => {
-                const idx = this.plugin.settings.customTemplates.findIndex(t => t.id === tpl.id);
-                if (idx >= 0) {
-                  this.plugin.settings.customTemplates.splice(idx, 1);
-                  if (this.plugin.settings.activePreset === CUSTOM_PREFIX + tpl.id) {
-                    this.plugin.settings.activePreset = 'none';
-                  }
-                  await this.plugin.saveSettings();
-                  if (this.plugin.settings.enabled) this.plugin.applyTint();
-                }
-                confirmModal.close();
-                window.setTimeout(() => this.update(), 100);
-              };
-              deleteBtn.addEventListener('click', () => { void handleDelete(); });
-              btnRow.createEl('button', { text: 'Cancel' }).addEventListener('click', () => confirmModal.close());
-              confirmModal.open();
-            }));
+        const thumbWrap = row.createDiv({ cls: 'pbt-custom-thumb-wrap' });
+        const thumb = thumbWrap.createDiv({ cls: 'pbt-custom-thumb' });
+        thumb.setCssStyles({ backgroundColor: tpl.color });
+        if (tpl.pattern && tpl.pattern !== 'none') {
+          thumb.setCssStyles({ backgroundImage: `linear-gradient(135deg, transparent 48%, rgba(0,0,0,0.15) 48%, rgba(0,0,0,0.15) 52%, transparent 52%)`, backgroundSize: '6px 6px' });
+        }
+
+        const info = row.createDiv({ cls: 'pbt-custom-info' });
+        info.createDiv({ cls: 'pbt-custom-name', text: tpl.name });
+        info.createDiv({ cls: 'pbt-custom-desc', text: desc });
+
+        const btnWrap = row.createDiv({ cls: 'pbt-custom-btns' });
+        const applyBtn = btnWrap.createEl('button', { cls: 'pbt-btn', text: isActive ? 'Active' : 'Apply' });
+        applyBtn.setCssStyles({ opacity: isActive ? '0.5' : '1', pointerEvents: isActive ? 'none' : 'auto' });
+        applyBtn.addEventListener('click', () => {
+          void (async () => {
+            await this.plugin.applyTemplate(CUSTOM_PREFIX + tpl.id);
+            this.update();
+          })();
+        });
+
+        btnWrap.createEl('button', { cls: 'pbt-btn', text: 'Edit' }).addEventListener('click', () => {
+          const modal = new TemplateEditModal(this.app, this.plugin, tpl, false, async (updated: PDFTemplate) => {
+            Object.assign(tpl, updated);
+            await this.plugin.saveSettings();
+            if (isActive && this.plugin.settings.enabled) this.plugin.applyTint();
+            this.update();
+          });
+          modal.open();
+        });
+
+        btnWrap.createEl('button', { cls: 'pbt-btn pbt-btn-danger', text: 'Delete' }).addEventListener('click', () => {
+          const confirmModal = new Modal(this.app);
+          confirmModal.titleEl.setText('Delete Template');
+          const msg = confirmModal.contentEl.createEl('p');
+          msg.setText(`Are you sure you want to delete "${tpl.name}"?`);
+          msg.setCssStyles({ margin: '16px 0 24px', color: 'var(--text-muted)' });
+
+          const btnRow2 = confirmModal.contentEl.createDiv({ cls: 'pbt-modal-footer' });
+          const deleteBtn2 = btnRow2.createEl('button', { text: 'Delete', cls: 'mod-cta' });
+          deleteBtn2.setCssStyles({ background: 'var(--interactive-accent)', color: '#fff' });
+          const handleDelete = async () => {
+            const idx = this.plugin.settings.customTemplates.findIndex(t => t.id === tpl.id);
+            if (idx >= 0) {
+              this.plugin.settings.customTemplates.splice(idx, 1);
+              if (this.plugin.settings.activePreset === CUSTOM_PREFIX + tpl.id) {
+                this.plugin.settings.activePreset = 'none';
+              }
+              await this.plugin.saveSettings();
+              if (this.plugin.settings.enabled) this.plugin.applyTint();
+            }
+            confirmModal.close();
+            window.setTimeout(() => this.update(), 100);
+          };
+          deleteBtn2.addEventListener('click', () => { void handleDelete(); });
+          btnRow2.createEl('button', { text: 'Cancel' }).addEventListener('click', () => confirmModal.close());
+          confirmModal.open();
+        });
       }
     }
 
