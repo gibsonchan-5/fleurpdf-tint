@@ -670,6 +670,87 @@
   border-radius: 3px;
 }
 
+/* ==================== Custom Template Rows ==================== */
+
+.pbt-setting-tab .pbt-custom-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.pbt-setting-tab .pbt-custom-thumb-wrap {
+  flex-shrink: 0;
+}
+
+.pbt-setting-tab .pbt-custom-thumb {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--pbt-radius-sm);
+  border: 1px solid var(--background-modifier-border);
+  background-repeat: repeat;
+}
+
+.pbt-setting-tab .pbt-custom-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.pbt-setting-tab .pbt-custom-name {
+  font-weight: 600;
+  font-size: var(--font-ui-small);
+  color: var(--text-normal);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pbt-setting-tab .pbt-custom-desc {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.pbt-setting-tab .pbt-custom-btns {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.pbt-setting-tab .pbt-btn {
+  padding: 4px 10px;
+  font-size: var(--font-ui-smaller);
+  border-radius: var(--pbt-radius-sm);
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  color: var(--text-normal);
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.pbt-setting-tab .pbt-btn:hover {
+  background: var(--background-modifier-hover);
+}
+
+.pbt-setting-tab .pbt-btn.mod-cta {
+  background: var(--interactive-accent);
+  color: #fff;
+  border-color: var(--interactive-accent);
+}
+
+.pbt-setting-tab .pbt-btn.mod-cta:hover {
+  background: var(--interactive-accent-hover);
+}
+
+.pbt-setting-tab .pbt-btn.pbt-btn-danger {
+  color: var(--text-error);
+}
+
+.pbt-setting-tab .pbt-btn.pbt-btn-danger:hover {
+  background: var(--background-modifier-error-hover);
+}
+
 /* ==================== PDF Page Tint ==================== */
 
 body .workspace .pdf-scroll-container {
