@@ -236,6 +236,9 @@ export default class FleurPdfTintPlugin extends Plugin {
 
     const isDark = this.isDarkMode(color);
     const blendMode = isDark ? 'screen' : 'multiply';
+    // Dark mode: invert the canvas (white page -> black, black text -> white),
+    // hue-rotate keeps colored images looking natural, then screen-blend onto the dark background.
+    const canvasFilter = isDark ? 'invert(1) hue-rotate(180deg)' : 'none';
 
     const tpl = this.resolveActiveTemplate();
     const pattern = tpl?.pattern || 'none';
@@ -280,6 +283,7 @@ export default class FleurPdfTintPlugin extends Plugin {
     document.body.setCssProps({
       '--pbt-bg-color': color,
       '--pbt-blend': blendMode,
+      '--pbt-canvas-filter': canvasFilter,
       '--pbt-pattern-image': patternImage,
       '--pbt-pattern-size': patternSize,
     });
@@ -316,6 +320,7 @@ export default class FleurPdfTintPlugin extends Plugin {
     document.body.setCssProps({
       '--pbt-bg-color': '',
       '--pbt-blend': '',
+      '--pbt-canvas-filter': '',
       '--pbt-pattern-image': '',
       '--pbt-pattern-size': '',
     });

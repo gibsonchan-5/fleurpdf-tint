@@ -765,7 +765,11 @@ body .workspace .view-content .page {
 }
 
 body .workspace .view-content .page canvas,
-body .workspace .view-content .page .canvasWrapper canvas,
+body .workspace .view-content .page .canvasWrapper canvas {
+  mix-blend-mode: var(--pbt-blend);
+  filter: var(--pbt-canvas-filter, none);
+}
+
 body .workspace .view-content .page .textLayer,
 body .workspace .view-content .page .annotationLayer {
   mix-blend-mode: var(--pbt-blend);
